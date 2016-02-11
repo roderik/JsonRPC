@@ -305,7 +305,7 @@ class Client
      * @throws AccessDeniedException
      * @throws ServerErrorException
      */
-    public function handleHttpErrors(array $headers)
+    public function handleHttpErrors(array $headers, array $response)
     {
         $exceptions = array(
             '401' => 'JsonRPC\AccessDeniedException',
@@ -314,10 +314,20 @@ class Client
             '500' => 'JsonRPC\ServerErrorException',
         );
 
+        $error_message = "";
+        if(isset($response["error"])){
+            if(isset($response["error"]["code"])) {
+                $error_message .= "[" . $response["error"]["code"] . "] ";
+            }
+            if(isset($response["error"]["message"])) {
+                $error_message .= $response["error"]["message"];
+            }
+        }
+
         foreach ($headers as $header) {
             foreach ($exceptions as $code => $exception) {
                 if (strpos($header, 'HTTP/1.0 '.$code) !== false || strpos($header, 'HTTP/1.1 '.$code) !== false) {
-                    throw new $exception('Response: '.$header);
+                    throw new $exception(($error_message == ""?'Response: '.$header:$error_message));
                 }
             }
         }
@@ -347,7 +357,7 @@ class Client
             error_log('==> Response: '.PHP_EOL.json_encode($response, JSON_PRETTY_PRINT));
         }
 
-        $this->handleHttpErrors($metadata['wrapper_data']);
+        $this->handleHttpErrors($metadata['wrapper_data'], $response);
 
         return is_array($response) ? $response : array();
     }
